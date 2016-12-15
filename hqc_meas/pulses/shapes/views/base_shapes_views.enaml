@@ -114,5 +114,37 @@ enamldef GaussianShapeView(SplitItem):
                         text := shape.width
                         entries_updater << item.parent.get_bindable_vars
                         tool_tip = 'Standard deviation of the gaussian'
+ 
+                       
+enamldef GaussianEdgeShapeView(SplitItem):
+    """ View for a gaussian pulse.
 
-SHAPES_VIEWS = {'SquareShape': SquareShapeView, 'GaussianShape': GaussianShapeView}
+    """
+    attr item
+    attr shape
+
+    GroupBox:
+        title = 'Gaussian Edge'
+        Splitter: spl:
+            SplitItem:
+                Container:
+                    constraints = [hbox(amp_lab, amp_val),
+                       align('v_center', amp_lab, amp_val)]
+                    Label: amp_lab:
+                        text = 'amplitude'
+                    QtLineCompleter: amp_val:
+                        hug_width = 'ignore'
+                        text := shape.amplitude
+                        tool_tip = 'Relative amplitude of the pulse (should be between -1.0 and 1.0)'
+            SplitItem:
+                Container:
+                    constraints << [hbox(width_lab, width_val),
+                                    align('v_center', width_lab, width_val)]
+                    Label: width_lab:
+                        text = 'Edge Width'
+                    QtLineCompleter: width_val:
+                        text := shape.edge_width
+                        entries_updater << item.parent.get_bindable_vars
+                        tool_tip = 'Gaussian rising/folding time'
+
+SHAPES_VIEWS = {'SquareShape': SquareShapeView, 'GaussianShape': GaussianShapeView, 'GaussianEdgeShape': GaussianEdgeShapeView}

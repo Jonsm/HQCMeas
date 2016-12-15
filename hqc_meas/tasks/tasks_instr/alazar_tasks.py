@@ -108,7 +108,7 @@ class DemodAlazarTask(InstrumentTask):
         freq = self.format_string(self.freq, 10**6, len(time))
         freqB = self.format_string(self.freqB, 10**6, len(timeB))
         samplesPerSec = 500000000.0
-        
+                
         if 0 in duration:
             duration = []
             timestep = []
@@ -256,25 +256,23 @@ class TracesAlazarTask(InstrumentTask):
 class PhaseAlazarTask(InstrumentTask):
     """ Get the phase (compared to a reference) and magnitude of the signal
     """
-    freq = Str('40').tag(pref=True)
+    freq = Str('50').tag(pref=True)
  
     timeaftertrig = Str('0').tag(pref=True)
-     
-    timestep = Str('0').tag(pref=True)
         
     duration = Str('1000').tag(pref=True)
  
-    tracesbuffer = Str('20').tag(pref=True)
+    tracesbuffer = Str('100').tag(pref=True)
 
     tracesnumber = Str('1000').tag(pref=True)
 
     average = Bool(True).tag(pref=True)
     
     Npoints = Str('0').tag(pref=True)
-
-    IQtracemode = Bool(False).tag(pref=True)
     
     driver_list = ['Alazar987x']
+    
+    parallel = set_default({'activated': True, 'pool': 'acq'})
 
     task_database_entries = set_default({'Demod': {}})
     
@@ -321,23 +319,12 @@ class PhaseAlazarTask(InstrumentTask):
             test = False
             traceback[self.task_path + '/' + self.task_name + '-get_demod'] = \
                            cleandoc('''All measurements are disabled.''')
-
-        timestep = self.format_string(self.timestep, 10**-9, len(time))
-        freq = self.format_string(self.freq, 10**6, len(time))
-        samplesPerSec = 1000000000.0
-        
-        for d, ts in zip(duration, timestep):
-            if ts and np.mod(int(samplesPerSec*d), int(samplesPerSec*ts)):
-                test = False
-                traceback[self.task_path + '/' + self.task_name + '-get_demod'] = \
-                   cleandoc('''The number of samples in "IQ time step" must divide the number of samples in "Duration".''')
-
-        for f, ts in zip(freq, timestep):
-            if ts and np.mod(f*int(samplesPerSec*ts), samplesPerSec):
-                test = False
-                traceback[self.task_path + '/' + self.task_name + '-get_demod'] = \
-                   cleandoc('''The "IQ time step" does not cover an integer number of demodulation periods.''')
-        
+                           
+        if self.Npoints and not self.average:
+            test = False
+            traceback[self.task_path + '/' + self.task_name + '-get_demod'] = \
+                           cleandoc('''Average needs to be set ON to average over different experiments''')
+                           
         return test, traceback
 
     def perform(self):
@@ -351,7 +338,9 @@ class PhaseAlazarTask(InstrumentTask):
 
         self.driver.configure_board()
 
+        numberPoints = self.format_and_eval_string(self.Npoints)
         recordsPerCapture = self.format_and_eval_string(self.tracesnumber)
+        recordsTotal = recordsPerCapture * (numberPoints if numberPoints else 1)
         recordsPerBuffer = int(self.format_and_eval_string(self.tracesbuffer))
 
         time = self.format_string(self.timeaftertrig, 10**-9, 1)
@@ -361,14 +350,12 @@ class PhaseAlazarTask(InstrumentTask):
             
         startaftertrig = time
         duration = duration
-
-        timestep = self.format_string(self.timestep, 10**-9, Ndemod)
+        
         freq = self.format_string(self.freq, 10**6, Ndemod)
 
         answerDemod = self.driver.get_phase(startaftertrig, duration,
-                                       recordsPerCapture, recordsPerBuffer,
-                                       timestep, freq, self.average,
-                                       Ndemod, self.format_and_eval_string(self.Npoints))
+                                       recordsTotal, recordsPerBuffer,
+                                       freq, self.average, Ndemod, numberPoints)
                                               
         self.write_in_database('Demod', answerDemod)
 

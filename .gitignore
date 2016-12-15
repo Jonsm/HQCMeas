@@ -8,4 +8,6 @@ hqc_meas/instruments/profiles/
 hqc_meas/tasks/templates/
 tests/cover
 *.dll
-
+*.dat
+*.nb
+*.ini

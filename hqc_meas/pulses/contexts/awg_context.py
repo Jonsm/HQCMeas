@@ -143,8 +143,9 @@ class AWGContext(BaseContext):
             aux = np.empty(2*sequence_length, dtype=np.uint8)
             aux[::2] = array % 2**8
             aux[1::2] = array // 2**8
-            to_send[int(channel[-1])] = bytearray(aux)
 
+            to_send[int(channel[-1])] = bytearray(aux)
+        
         return True, to_send
 
     def _get_sampling_time(self):

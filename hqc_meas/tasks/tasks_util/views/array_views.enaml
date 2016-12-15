@@ -69,5 +69,54 @@ enamldef ArrayFindValueView(GroupBox): view:
                     entries_updater << task.accessible_database_entries
                     tool_tip = EVALUATER_TOOLTIP
 
+enamldef ArrayFitView(GroupBox): view:
+    
+    attr task
+    title << task.task_name
+    padding = (0,5,5,5)
+    
+    Splitter:
+        SplitItem:
+            Container:
+                Label: data_arr_lab:
+                    text = 'Data array'
+                QtLineCompleter: data_arr_val:
+                    hug_width = 'ignore'
+                    text := task.data_array
+                    entries_updater << task.accessible_database_entries
+                    tool_tip = EVALUATER_TOOLTIP
+
+        SplitItem:
+            Container:
+                Label: x_arr_lab:
+                    text = 'Variable array'
+                QtLineCompleter: x_arr_val:
+                    hug_width = 'ignore'
+                    text := task.variable_array
+                    entries_updater << task.accessible_database_entries
+                    tool_tip = EVALUATER_TOOLTIP
+
+    Splitter:
+        SplitItem:
+            Container:
+                Label: exp_lab:
+                    text = 'Fitting function: f(x,param)='
+                QtLineCompleter: exp_val:
+                    hug_width = 'ignore'
+                    text := task.expression
+                    entries_updater << task.accessible_database_entries
+                    tool_tip = "Write the expression of the fitting function, x being the variable and param the list of parameters to fit. For instance 'param[0]*x+param[1]' for a slope. " + EVALUATER_TOOLTIP
+
+        SplitItem:
+            Container:
+                Label: guess_lab:
+                    text = 'Parameter guess'
+                QtLineCompleter: guess_val:
+                    hug_width = 'ignore'
+                    text := task.guess
+                    entries_updater << task.accessible_database_entries
+                    tool_tip = "Separate the guess for the different parameters by a comma ',' for instance '0,1'. If left empty, the default guess parameters will be set to 1. " + EVALUATER_TOOLTIP
+
 TASK_VIEW_MAPPING = {'ArrayExtremaTask' : ArrayExtremaView,
-                     'ArrayFindValueTask' : ArrayFindValueView}
+                     'ArrayFindValueTask' : ArrayFindValueView,
+                         'ArrayFitTask' :  ArrayFitView}

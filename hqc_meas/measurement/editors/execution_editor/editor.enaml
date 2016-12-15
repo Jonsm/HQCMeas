@@ -93,7 +93,7 @@ enamldef _ExEditor(Container):
         # Workaround the fact that otherwise when the checkbox is unchecked
         # the declaration for the ObjectCombo in par_cond is destroyed but the
         # qt object try to refresh its items given the async nature of enaml.
-        attr active : bool = checked
+        attr active : bool := checked
         text = 'Parallel'
         tool_tip = cleandoc('''Should this task perform its job in parallel
                             (new thread).''')

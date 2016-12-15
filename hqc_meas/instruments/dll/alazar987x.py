@@ -358,6 +358,7 @@ class Alazar987x(DllInstrument):
                                     ('BQ' + str(i).zfill(zerosDemodB), str(data[0].dtype))]
             lengthDemod = [(samplesPerDemod[i]/int(samplesPerSec*timestep[i]) if timestep[i] else 1) for i in range(NdemodA+NdemodB)]
             biggerDemod = max(lengthDemod)
+            print lengthDemod
         else:
             answerTypeDemod = 'f'
             biggerDemod = 0
@@ -513,7 +514,7 @@ class Alazar987x(DllInstrument):
 
 
     def get_phase(self, startaftertrig, duration, recordsPerCapture,
-                  recordsPerBuffer, timestep, freq, average, Ndemod, Npoints):
+                  recordsPerBuffer, freq, average, Ndemod, Npoints):
 
         board = self._dll.GetBoardBySystemID(1, 1)()
 
@@ -575,6 +576,7 @@ class Alazar987x(DllInstrument):
         start = time.clock()  # Keep track of when acquisition started
         self._dll.StartCapture(board)  # Start the acquisition
 
+        print 'Alazar waiting for trigger'
         # Preparation of the tables for the demodulation
 
         startSample = []
@@ -588,18 +590,14 @@ class Alazar987x(DllInstrument):
         for i in range(2*Ndemod):
             startSample.append( int(samplesPerSec * startaftertrig[i%Ndemod]) )
             samplesPerDemod.append( int(samplesPerSec * duration[i%Ndemod]) )
-
-            if timestep[i%Ndemod]:
-                samplesPerBlock.append( samplesPerDemod[i%Ndemod] )
-            else:
-                # Check wheter it is possible to cut each record in blocks of size equal
-                # to an integer number of periods
-                periodsPerBlock = 1
-                while (periodsPerBlock * samplesPerSec < freq[i%Ndemod] * samplesPerDemod[i%Ndemod]
-                       and periodsPerBlock * samplesPerSec % freq[i%Ndemod]):
-                    periodsPerBlock += 1
-                samplesPerBlock.append( int(np.minimum(periodsPerBlock * samplesPerSec / freq[i%Ndemod],
-                                                      samplesPerDemod[i%Ndemod])) )
+            # Check wheter it is possible to cut each record in blocks of size equal
+            # to an integer number of periods
+            periodsPerBlock = 1
+            while (periodsPerBlock * samplesPerSec < freq[i%Ndemod] * samplesPerDemod[i%Ndemod]
+                   and periodsPerBlock * samplesPerSec % freq[i%Ndemod]):
+                periodsPerBlock += 1
+            samplesPerBlock.append( int(np.minimum(periodsPerBlock * samplesPerSec / freq[i%Ndemod],
+                                                  samplesPerDemod[i%Ndemod])) )
 
             NumberOfBlocks.append( np.divide(samplesPerDemod[i%Ndemod], samplesPerBlock[i%Ndemod]) )
             samplesMissing.append( (-samplesPerDemod[i%Ndemod]) % samplesPerBlock[i%Ndemod] )
@@ -670,15 +668,13 @@ class Alazar987x(DllInstrument):
         for i in range(Ndemod):
             answerTypeDemod += [('Phase' + str(i).zfill(zerosDemod), str(data[0].dtype)),
                                 ('Magnitude' + str(i).zfill(zerosDemod), str(data[0].dtype))]
-        lengthDemod = [(samplesPerDemod[i]/int(samplesPerSec*timestep[i]) if timestep[i] else 1) for i in range(Ndemod)]
-        biggerDemod = max(lengthDemod)
         
         if (average and Npoints == 0.0):
-            answerDemod = np.zeros(biggerDemod, dtype=answerTypeDemod)
+            answerDemod = np.zeros(1, dtype=answerTypeDemod)
         elif average:
-            answerDemod = np.zeros((biggerDemod, Npoints), dtype=answerTypeDemod)
+            answerDemod = np.zeros((1, Npoints), dtype=answerTypeDemod)
         else:
-            answerDemod = np.zeros((recordsPerCapture, biggerDemod), dtype=answerTypeDemod)
+            answerDemod = np.zeros((recordsPerCapture, 1), dtype=answerTypeDemod)
 
         # Demodulate the data, average them if asked and return the result
 
@@ -688,32 +684,32 @@ class Alazar987x(DllInstrument):
             
             if average and Npoints == 0:
                 data[i] = np.mean(data[i], axis=0)
-                ansAI = 2 * np.mean((data[i]*coses[i]).reshape(lengthDemod[i], -1), axis=1)
-                ansAQ = 2 * np.mean((data[i]*sines[i]).reshape(lengthDemod[i], -1), axis=1)
-                ansBI = 2 * np.mean((data[i+Ndemod]*coses[i]).reshape(lengthDemod[i], -1), axis=1)
-                ansBQ = 2 * np.mean((data[i+Ndemod]*sines[i]).reshape(lengthDemod[i], -1), axis=1)
+                ansAI = 2 * np.mean((data[i]*coses[i]).reshape(1, -1), axis=1)
+                ansAQ = 2 * np.mean((data[i]*sines[i]).reshape(1, -1), axis=1)
+                ansBI = 2 * np.mean((data[i+Ndemod]*coses[i]).reshape(1, -1), axis=1)
+                ansBQ = 2 * np.mean((data[i+Ndemod]*sines[i]).reshape(1, -1), axis=1)
                 
-                answerDemod[Phasestring][:lengthDemod[i]] = np.arctan2((ansAI*ansBQ-ansAQ*ansBI),(ansAI*ansBI+ansAQ*ansBQ))
-                answerDemod[Magstring][:lengthDemod[i]] = np.sqrt(ansAI**2+ansAQ**2)
+                answerDemod[Phasestring][:1] = np.arctan2((ansAI*ansBQ-ansAQ*ansBI),(ansAI*ansBI+ansAQ*ansBQ))
+                answerDemod[Magstring][:1] = np.sqrt(ansAI**2+ansAQ**2)
                 
             elif average:
-                data[i] = np.split(data[i], Npoints)
+                data[i] = data[i].reshape(recordsPerCapture/Npoints,Npoints,samplesPerBlock[i])
                 data[i] = np.mean(data[i], axis=0)
-                ansAI = 2 * np.mean((data[i]*coses[i]).reshape(Npoints*lengthDemod[i], -1), axis=1)
-                ansAQ = 2 * np.mean((data[i]*sines[i]).reshape(Npoints*lengthDemod[i], -1), axis=1)
-                ansBI = 2 * np.mean((data[i+Ndemod]*coses[i]).reshape(Npoints*lengthDemod[i], -1), axis=1)
-                ansBQ = 2 * np.mean((data[i+Ndemod]*sines[i]).reshape(Npoints*lengthDemod[i], -1), axis=1)               
-
-                answerDemod[Phasestring][:lengthDemod[i]] = np.arctan2((ansAI*ansBQ-ansAQ*ansBI),(ansAI*ansBI+ansAQ*ansBQ))
-                answerDemod[Magstring][:lengthDemod[i]] = np.sqrt(ansAI**2+ansAQ**2)
-            else:
-                ansAI = 2 * np.mean((data[i]*coses[i]).reshape(lengthDemod[i], -1), axis=2)
-                ansAQ = 2 * np.mean((data[i]*sines[i]).reshape(lengthDemod[i], -1), axis=2)
-                ansBI = 2 * np.mean((data[i+Ndemod]*coses[i]).reshape(lengthDemod[i], -1), axis=2)
-                ansBQ = 2 * np.mean((data[i+Ndemod]*sines[i]).reshape(lengthDemod[i], -1), axis=2)
+                ansAI = 2 * np.mean((data[i]*coses[i]).reshape(Npoints, -1), axis=1)
+                ansAQ = 2 * np.mean((data[i]*sines[i]).reshape(Npoints, -1), axis=1)
+                ansBI = 2 * np.mean((data[i+Ndemod]*coses[i]).reshape(Npoints, -1), axis=1)
+                ansBQ = 2 * np.mean((data[i+Ndemod]*sines[i]).reshape(Npoints, -1), axis=1)               
                 
-                answerDemod[Phasestring][:lengthDemod[i]] = np.arctan2((ansAI*ansBQ-ansAQ*ansBI),(ansAI*ansBI+ansAQ*ansBQ))
-                answerDemod[Magstring][:lengthDemod[i]] = np.sqrt(ansAI**2+ansAQ**2)
+                answerDemod[Phasestring][:1] = np.arctan2((ansAI*ansBQ-ansAQ*ansBI),(ansAI*ansBI+ansAQ*ansBQ))
+                answerDemod[Magstring][:1] = np.sqrt(ansAI**2+ansAQ**2)
+            else:
+                ansAI = 2 * np.mean((data[i]*coses[i]).reshape(recordsPerCapture, 1, -1), axis=2)
+                ansAQ = 2 * np.mean((data[i]*sines[i]).reshape(recordsPerCapture, 1, -1), axis=2)
+                ansBI = 2 * np.mean((data[i+Ndemod]*coses[i]).reshape(recordsPerCapture, 1, -1), axis=2)
+                ansBQ = 2 * np.mean((data[i+Ndemod]*sines[i]).reshape(recordsPerCapture, 1, -1), axis=2)
+                
+                answerDemod[Phasestring][:, :1] = np.arctan2((ansAI*ansBQ-ansAQ*ansBI),(ansAI*ansBI+ansAQ*ansBQ))
+                answerDemod[Magstring][:, :1] = np.sqrt(ansAI**2+ansAQ**2)
 
         return answerDemod
         

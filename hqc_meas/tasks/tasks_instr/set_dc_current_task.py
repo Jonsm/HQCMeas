@@ -6,13 +6,13 @@
 # =============================================================================
 """
 """
-from atom.api import (Float, Value, Str, Int, set_default)
+from atom.api import (Float, Str, set_default)
 
 import time
 import logging
 from inspect import cleandoc
 
-from hqc_meas.tasks.api import (InstrumentTask, InstrTaskInterface,
+from hqc_meas.tasks.api import (InstrumentTask,
                                 InterfaceableTaskMixin)
 
 
@@ -35,7 +35,6 @@ class SetDCCurrentTask(InterfaceableTaskMixin, InstrumentTask):
     #: Time to wait between changes of the output of the instr.
     delay = Float(0.01).tag(pref=True)
 
-    parallel = set_default({'activated': True, 'pool': 'instr'})
     loopable = True
     task_database_entries = set_default({'current': 0.01})
 
@@ -63,9 +62,7 @@ class SetDCCurrentTask(InterfaceableTaskMixin, InstrumentTask):
         if not self.driver:
             self.start_driver()
         if self.driver.owner != self.task_name:
-            self.driver.owner = self.task_name
-            print self.driver.function
-            
+            self.driver.owner = self.task_name            
             if hasattr(self.driver, 'function') and\
                     self.driver.function != 'CURR':
                 log = logging.getLogger()
@@ -77,6 +74,7 @@ class SetDCCurrentTask(InterfaceableTaskMixin, InstrumentTask):
         setter = lambda value: setattr(self.driver, 'current', value)
         current_value = getattr(self.driver, 'current')
         
+        print 'Setting current'
         self.smooth_set(value, setter, current_value)
 
     def smooth_set(self, target_value, setter, current_value):

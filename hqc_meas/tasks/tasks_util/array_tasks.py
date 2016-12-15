@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # =============================================================================
 # module : hqc_meas/tasks/tasks_util/array_tasks.py
-# author : Matthieu Dartiailh
+# author : Matthieu Dartiailh & Nathanael Cottet
 # license : MIT license
 # =============================================================================
 """
@@ -9,9 +9,9 @@
 import logging
 from atom.api import (Enum, Str, set_default)
 import numpy as np
+import scipy.optimize as opt
 
 from ..base_tasks import SimpleTask
-
 
 class ArrayExtremaTask(SimpleTask):
     """ Store the pair(s) of index/value for the extrema(s) of an array.
@@ -191,4 +191,72 @@ class ArrayFindValueTask(SimpleTask):
         return test, traceback
 
 
-KNOWN_PY_TASKS = [ArrayExtremaTask, ArrayFindValueTask]
+class ArrayFitTask(SimpleTask):
+    """ Fit a data array by a given expression.
+        
+        Wait for any parallel operation before execution.
+        
+        """
+    #: Name of the data array in the database.
+    data_array = Str().tag(pref=True)
+    
+    #: Name of the variable array in the database.
+    variable_array = Str().tag(pref=True)
+    
+    #: Expression of the fit function: x is the variables and p the list of parameters
+    expression = Str().tag(pref=True)
+    
+    #: Guess for fit parameters (optional)
+    guess = Str().tag(pref=True)
+    
+    task_database_entries = set_default({'fit': 0})
+    
+    wait = set_default({'activated': True})  # Wait on all pools by default.
+    
+    def perform(self):
+        """ Evaluate the expression of the fit function and 
+            try to fit the data
+            
+        """
+
+        y_data = self.get_from_database(self.data_array[1:-1])
+        x_data = self.get_from_database(self.variable_array[1:-1])
+ 
+        num_parameters = self.expression.count('param')
+
+        def fitting_function(x, *p):
+            expr = self.format_string(self.expression)
+            for i in range(num_parameters):
+                expr = expr.replace('param[%d]'%i, str(p[i]))
+            expr = expr.replace('x','np.array('+str(list(x))+')')
+            return self.format_and_eval_string(expr)
+
+        if self.guess == '':
+            guess_list = np.ones(num_parameters)
+            guess_list = list(guess_list)
+        else:
+            guess_list = self.format_and_eval_string(self.guess)
+
+        result , error = opt.curve_fit(fitting_function, x_data, y_data, guess_list)
+
+        self.write_in_database('fit', result)
+
+    def check(self, *args, **kwargs):
+        """ Check the number of parameters matches the number of guess
+        
+        """
+        test = True
+        traceback = {}
+        err_path = self.task_path + '/' + self.task_name
+        
+        num_parameters = self.expression.count('param')
+        if self.guess != '':
+            guess_list = self.format_and_eval_string(self.guess)
+            if np.size(guess_list) != num_parameters:
+                traceback[err_path + '-value'] = \
+                '''The number of guess is not equal to the number of parameters'''
+                test = False
+
+        return test, traceback
+
+KNOWN_PY_TASKS = [ArrayExtremaTask, ArrayFindValueTask, ArrayFitTask]
